@@ -76,9 +76,11 @@ router.post('/add-user', async (req, res) => {
         await newUser.save();
         res.status(201).json({ message: 'User created successfully.', user: newUser });
     } catch (err) {
-        res.status(500).json({ message: 'Internal server error.', error: err });
+        console.error("Error creating user:", err);  // Log the error in the server
+        res.status(500).json({ message: 'Internal server error.', error: err.message || err });
     }
 });
+
 
 /**
  * @swagger
