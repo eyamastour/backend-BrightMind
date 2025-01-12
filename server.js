@@ -7,6 +7,9 @@ const AdminRouter = require('./api/Admin');
 const ActuatorRouter = require('./api/Actuator'); 
 const SensorRouter = require('./api/Sensor'); 
 const AreaRouter = require('./api/Area'); 
+const installationRoutes = require('./routes/installationRoutes');
+const deviceRoutes = require('./routes/deviceRoutes');
+const roomRoutes = require('./routes/roomRoutes');
 
 const bodyParser = require('body-parser');
 
@@ -46,7 +49,10 @@ app.use('/actuator', ActuatorRouter);
 app.use('/sensor', SensorRouter);
 app.use('/area', AreaRouter);
 
-
+// Use installation routes
+app.use('/api/installations', installationRoutes);
+app.use('/api/devices', deviceRoutes);
+app.use('/api/rooms', roomRoutes);
 
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
