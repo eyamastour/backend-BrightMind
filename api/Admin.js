@@ -216,6 +216,9 @@ router.get('/user/:id', async (req, res) => {
  *               language:
  *                 type: string
  *                 example: anglais
+ *               role:
+ *                 type: string
+ *                 example: admin
  *     responses:
  *       200:
  *         description: User updated successfully.
@@ -224,23 +227,36 @@ router.get('/user/:id', async (req, res) => {
  *       500:
  *         description: Internal server error.
  */
-router.put('/user/:id', async (req, res) => {
+router.put('/admin/user/:id/role', async (req, res) => {
     const { id } = req.params;
-    const { username, email, company, tel, language } = req.body;
+    const { role } = req.body;
+
+    // Validate role
+    if (!role || !['user', 'admin'].includes(role)) {
+        return res.status(400).json({ message: 'Invalid role provided.' });
+    }
+
     try {
         const user = await User.findByIdAndUpdate(
-            id,
-            { username, email, company, tel, language },
-            { new: true }
+            id, 
+            { role }, 
+            { new: true, runValidators: true } // Ensures schema validation runs
         );
+
         if (!user) {
             return res.status(404).json({ message: 'User not found.' });
         }
-        res.status(200).json({ message: 'User updated successfully.', user });
+
+        res.status(200).json({ 
+            message: 'User role updated successfully.', 
+            user 
+        });
     } catch (err) {
+        console.error('Role update error:', err);
         res.status(500).json({ message: 'Internal server error.' });
     }
 });
+
 /**
  * @swagger
  * /admin/user/{id}:
