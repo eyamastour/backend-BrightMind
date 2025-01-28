@@ -5,7 +5,10 @@ const deviceController = require('../controllers/deviceController');
 // Public routes (no authentication required)
 router.get('/', deviceController.getDevices);
 router.get('/rooms/:roomId/devices', deviceController.getDevicesByRoom);
+router.get('/installations/:installationId/devices', deviceController.getDevicesByInstallation);
 router.get('/:id', deviceController.getDevice);
+router.get('/:id/history', deviceController.getDeviceHistory);
+router.get('/installations/:installationId/history', deviceController.getInstallationDevicesHistory);
 
 // Protected routes (no admin role required)
 router.post('/', deviceController.addDevice);
