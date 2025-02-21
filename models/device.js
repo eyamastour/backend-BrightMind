@@ -30,7 +30,12 @@ const deviceSchema = new mongoose.Schema({
   },
   status: { 
     type: String, 
-    enum: ['on', 'off', 'active'], // Ajout de 'active' ici
+    enum: ['on', 'off', 'active', 'inactive'], // Added 'inactive' status
+    required: false
+  },
+  enableConnection: {
+    type: Boolean,
+    default: true,
     required: false
   },
   value: { 
