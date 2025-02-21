@@ -1,9 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const roomController = require('../controllers/roomController');
-// const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
+const { verifyToken } = require('../middleware/authMiddleware');
 
-// Public routes (no authentication required)
+// Apply authentication middleware to all routes
+router.use(verifyToken);
+
+// Protected routes
 router.get('/', roomController.getRooms);
 router.get('/:id', roomController.getRoom);
 

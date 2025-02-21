@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const installationSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   route: { type: String, required: true },
   boxId: { type: String, required: true },
   latitude: { type: Number, required: true },

@@ -1,8 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const deviceController = require('../controllers/deviceController');
+const { verifyToken } = require('../middleware/authMiddleware');
 
-// Public routes (no authentication required)
+// Apply authentication middleware to all routes
+router.use(verifyToken);
+
+// Protected routes
 router.get('/', deviceController.getDevices);
 router.get('/rooms/:roomId/devices', deviceController.getDevicesByRoom);
 router.get('/installations/:installationId/devices', deviceController.getDevicesByInstallation);

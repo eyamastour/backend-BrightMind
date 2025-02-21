@@ -1,11 +1,30 @@
 const Room = require('../models/Room');
+const Installation = require('../models/installation');
+const User = require('../models/User');
 
 // Get all rooms
 exports.getRooms = async (req, res) => {
   try {
-    const rooms = await Room.find()
-      .populate('devices')
-      .populate('installation');
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    let rooms;
+    if (user.role === 'admin') {
+      rooms = await Room.find()
+        .populate('devices')
+        .populate('installation');
+    } else {
+      // Get installations owned by the user
+      const installations = await Installation.find({ userId: req.userId });
+      const installationIds = installations.map(inst => inst._id);
+      
+      // Get rooms from those installations
+      rooms = await Room.find({ installation: { $in: installationIds } })
+        .populate('devices')
+        .populate('installation');
+    }
     res.status(200).json(rooms);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -15,23 +34,52 @@ exports.getRooms = async (req, res) => {
 // Get a single room by ID
 exports.getRoom = async (req, res) => {
   try {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
     const room = await Room.findById(req.params.id)
       .populate('devices')
       .populate('installation');
     if (!room) {
       return res.status(404).json({ message: 'Room not found' });
     }
+
+    // Check if user has permission to view this room
+    const installation = await Installation.findById(room.installation);
+    if (!installation) {
+      return res.status(404).json({ message: 'Installation not found' });
+    }
+
+    if (user.role !== 'admin' && installation.userId.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Not authorized to view this room' });
+    }
+
     res.status(200).json(room);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-const Installation = require('../models/installation');
-
 // Create a new room
 exports.createRoom = async (req, res) => {
   try {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check if user has permission to add room to this installation
+    const installation = await Installation.findById(req.body.installation);
+    if (!installation) {
+      return res.status(404).json({ message: 'Installation not found' });
+    }
+
+    if (user.role !== 'admin' && installation.userId.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Not authorized to add room to this installation' });
+    }
+
     // Create the room
     const room = new Room({
       name: req.body.name,
@@ -41,12 +89,6 @@ exports.createRoom = async (req, res) => {
     const newRoom = await room.save();
 
     // Update the installation's rooms array
-    const installation = await Installation.findById(req.body.installation);
-    if (!installation) {
-      await Room.findByIdAndDelete(newRoom._id);
-      return res.status(404).json({ message: 'Installation not found' });
-    }
-
     installation.rooms.push(newRoom._id);
     await installation.save();
 
@@ -59,27 +101,43 @@ exports.createRoom = async (req, res) => {
 // Update a room
 exports.updateRoom = async (req, res) => {
   try {
-    const room = await Room.findById(req.params.id);
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const room = await Room.findById(req.params.id).populate('installation');
     if (!room) {
       return res.status(404).json({ message: 'Room not found' });
     }
 
+    // Check if user has permission to update this room
+    const installation = await Installation.findById(room.installation);
+    if (!installation) {
+      return res.status(404).json({ message: 'Installation not found' });
+    }
+
+    if (user.role !== 'admin' && installation.userId.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Not authorized to update this room' });
+    }
+
     // If installation is being changed, update both old and new installations
     if (req.body.installation && req.body.installation !== room.installation.toString()) {
-      // Remove room from old installation
-      if (room.installation) {
-        const oldInstallation = await Installation.findById(room.installation);
-        if (oldInstallation) {
-          oldInstallation.rooms = oldInstallation.rooms.filter(r => r.toString() !== room._id.toString());
-          await oldInstallation.save();
-        }
-      }
-
-      // Add room to new installation
+      // Check if user has permission to move room to new installation
       const newInstallation = await Installation.findById(req.body.installation);
       if (!newInstallation) {
         return res.status(404).json({ message: 'New installation not found' });
       }
+
+      if (user.role !== 'admin' && newInstallation.userId.toString() !== req.userId) {
+        return res.status(403).json({ message: 'Not authorized to move room to this installation' });
+      }
+
+      // Remove room from old installation
+      installation.rooms = installation.rooms.filter(r => r.toString() !== room._id.toString());
+      await installation.save();
+
+      // Add room to new installation
       newInstallation.rooms.push(room._id);
       await newInstallation.save();
     }
@@ -99,19 +157,29 @@ exports.updateRoom = async (req, res) => {
 // Delete a room
 exports.deleteRoom = async (req, res) => {
   try {
-    const room = await Room.findById(req.params.id);
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const room = await Room.findById(req.params.id).populate('installation');
     if (!room) {
       return res.status(404).json({ message: 'Room not found' });
     }
 
-    // Remove room from installation's rooms array
-    if (room.installation) {
-      const installation = await Installation.findById(room.installation);
-      if (installation) {
-        installation.rooms = installation.rooms.filter(r => r.toString() !== room._id.toString());
-        await installation.save();
-      }
+    // Check if user has permission to delete this room
+    const installation = await Installation.findById(room.installation);
+    if (!installation) {
+      return res.status(404).json({ message: 'Installation not found' });
     }
+
+    if (user.role !== 'admin' && installation.userId.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Not authorized to delete this room' });
+    }
+
+    // Remove room from installation's rooms array
+    installation.rooms = installation.rooms.filter(r => r.toString() !== room._id.toString());
+    await installation.save();
 
     await Room.deleteOne({ _id: req.params.id });
     res.status(200).json({ message: 'Room deleted successfully' });
@@ -123,9 +191,24 @@ exports.deleteRoom = async (req, res) => {
 // Add device to room
 exports.addDeviceToRoom = async (req, res) => {
   try {
-    const room = await Room.findById(req.params.id);
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const room = await Room.findById(req.params.id).populate('installation');
     if (!room) {
       return res.status(404).json({ message: 'Room not found' });
+    }
+
+    // Check if user has permission to add device to this room
+    const installation = await Installation.findById(room.installation);
+    if (!installation) {
+      return res.status(404).json({ message: 'Installation not found' });
+    }
+
+    if (user.role !== 'admin' && installation.userId.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Not authorized to add device to this room' });
     }
 
     const deviceId = req.body.deviceId;
@@ -144,9 +227,24 @@ exports.addDeviceToRoom = async (req, res) => {
 // Remove device from room
 exports.removeDeviceFromRoom = async (req, res) => {
   try {
-    const room = await Room.findById(req.params.id);
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const room = await Room.findById(req.params.id).populate('installation');
     if (!room) {
       return res.status(404).json({ message: 'Room not found' });
+    }
+
+    // Check if user has permission to remove device from this room
+    const installation = await Installation.findById(room.installation);
+    if (!installation) {
+      return res.status(404).json({ message: 'Installation not found' });
+    }
+
+    if (user.role !== 'admin' && installation.userId.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Not authorized to remove device from this room' });
     }
 
     const deviceId = req.body.deviceId;

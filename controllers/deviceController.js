@@ -2,6 +2,7 @@ const Device = require('../models/device');
 const Installation = require('../models/installation');
 const Room = require('../models/Room');
 const DeviceHistory = require('../models/deviceHistory');
+const User = require('../models/User');
 
 // Fonction pour ajouter un nouveau device
 // Fonction pour ajouter un nouveau device
@@ -94,7 +95,23 @@ exports.addDevice = async (req, res) => {
 // Fonction pour récupérer les devices
 exports.getDevices = async (req, res) => {
   try {
-    const devices = await Device.find().populate('room');
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    let devices;
+    if (user.role === 'admin') {
+      devices = await Device.find().populate('room');
+    } else {
+      // Get installations owned by the user
+      const installations = await Installation.find({ userId: req.userId });
+      const installationIds = installations.map(inst => inst._id);
+      
+      // Get devices from those installations
+      devices = await Device.find({ installation: { $in: installationIds } }).populate('room');
+    }
+    
     res.status(200).json(devices);
   } catch (error) {
     console.error('Error fetching devices:', error);
@@ -106,10 +123,19 @@ exports.getDevices = async (req, res) => {
 exports.getDevice = async (req, res) => {
   try {
     const { id } = req.params;
-    const device = await Device.findById(id).populate('room');
+    const user = await User.findById(req.userId);
+    const device = await Device.findById(id).populate('room').populate('installation');
 
     if (!device) {
       return res.status(404).json({ error: 'Device not found' });
+    }
+
+    // Check if user has permission to access this device
+    if (device.installation) {
+      const installation = await Installation.findById(device.installation);
+      if (user.role !== 'admin' && installation.userId.toString() !== req.userId) {
+        return res.status(403).json({ message: 'Not authorized to access this device' });
+      }
     }
 
     res.status(200).json(device);
@@ -236,11 +262,17 @@ exports.getInstallationDevicesHistory = async (req, res) => {
 exports.getDevicesByInstallation = async (req, res) => {
   try {
     const { installationId } = req.params;
+    const user = await User.findById(req.userId);
 
     // Vérifier si l'installation existe
     const installation = await Installation.findById(installationId);
     if (!installation) {
       return res.status(404).json({ error: 'Installation not found' });
+    }
+
+    // Check if user has permission to access this installation
+    if (user.role !== 'admin' && installation.userId.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Not authorized to access this installation' });
     }
 
     // Récupérer les devices de l'installation
@@ -256,11 +288,20 @@ exports.getDevicesByInstallation = async (req, res) => {
 exports.getDevicesByRoom = async (req, res) => {
   try {
     const { roomId } = req.params;
+    const user = await User.findById(req.userId);
 
     // Vérifier si la room existe
-    const room = await Room.findById(roomId);
+    const room = await Room.findById(roomId).populate('installation');
     if (!room) {
       return res.status(404).json({ error: 'Room not found' });
+    }
+
+    // Check if user has permission to access this room's devices
+    if (room.installation) {
+      const installation = await Installation.findById(room.installation);
+      if (user.role !== 'admin' && installation.userId.toString() !== req.userId) {
+        return res.status(403).json({ message: 'Not authorized to access devices in this room' });
+      }
     }
 
     // Fetch devices that have this room ID and populate room details

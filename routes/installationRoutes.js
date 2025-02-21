@@ -1,9 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const installationController = require('../controllers/installationController');
-// const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
+const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
 
-// Installation routes - accessible à tous (sans authentification temporaire)
+// Installation routes - protégées par authentification
+router.use(verifyToken); // Appliquer l'authentification à toutes les routes
+
+// Routes accessibles aux utilisateurs authentifiés
 router.post('/', installationController.addInstallation);
 router.get('/', installationController.getAllInstallations);
 router.get('/:id', installationController.getInstallationById);
