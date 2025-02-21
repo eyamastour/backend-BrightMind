@@ -4,6 +4,12 @@ const User = require('../models/User');
 // Add a new installation
 exports.addInstallation = async (req, res) => {
     try {
+      const user = await User.findById(req.userId);
+      
+      if (user.role !== 'admin') {
+        return res.status(403).json({ message: 'Only admins can add installations' });
+      }
+
       const { name, route, boxId, latitude, longitude, parent } = req.body;
       
       const newInstallation = new Installation({
@@ -150,9 +156,9 @@ exports.deleteInstallation = async (req, res) => {
       return res.status(404).json({ message: 'Installation not found' });
     }
 
-    // Vérifier si l'utilisateur a le droit de supprimer cette installation
-    if (user.role !== 'admin' && installation.userId.toString() !== req.userId) {
-      return res.status(403).json({ message: 'Not authorized to delete this installation' });
+    // Only admin can delete installations
+    if (user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only admins can delete installations' });
     }
 
     await Installation.findByIdAndDelete(req.params.id);
