@@ -68,7 +68,7 @@ router.post('/forgot-password', async (req, res) => {
             }
         });
 
-        const resetLink = `http://localhost:3001/user/reset-password?token=${resetToken}`;
+        const resetLink = `http://localhost:4200/auth/reset-password/${resetToken}`;
         const mailOptions = {
             from: GMAIL_USER,
             to: user.email,
@@ -99,30 +99,39 @@ router.post('/forgot-password', async (req, res) => {
     }
 });
 
-// Route pour réinitialiser le mot de passe
-router.post('/user/reset-password/:token', async (req, res) => {
+// Route to reset password
+router.post('/reset-password/:token', async (req, res) => {
     const { token } = req.params;
     const { newPassword } = req.body;
 
     if (!newPassword) {
-        return res.status(400).json({ status: "FAILED", message: "New password is required!" });
+        return res.status(400).json({ 
+            status: "FAILED", 
+            message: "New password is required!" 
+        });
     }
 
     try {
-        // Vérifier le token JWT
-        const decoded = jwt.verify(token, JWT_SECRET);
+        // Find user with valid reset token
+        const user = await User.findOne({ 
+            resetToken: token,
+            resetTokenExpiration: { $gt: Date.now() }
+        });
 
-        // Trouver l'utilisateur dans la base de données
-        const user = await User.findById(decoded.id);
         if (!user) {
-            return res.status(404).json({ status: "FAILED", message: "User not found!" });
+            return res.status(400).json({ 
+                status: "FAILED", 
+                message: "Invalid or expired reset token!" 
+            });
         }
 
-        // Hacher le nouveau mot de passe
+        // Hash the new password
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-        // Mettre à jour le mot de passe de l'utilisateur
+        // Update user's password and clear reset token
         user.password = hashedPassword;
+        user.resetToken = undefined;
+        user.resetTokenExpiration = undefined;
         await user.save();
 
         res.status(200).json({
@@ -131,7 +140,10 @@ router.post('/user/reset-password/:token', async (req, res) => {
         });
     } catch (error) {
         console.error("Error in reset password:", error);
-        res.status(500).json({ status: "FAILED", message: "An error occurred." });
+        res.status(500).json({ 
+            status: "FAILED", 
+            message: "An error occurred while resetting password." 
+        });
     }
 });
 
