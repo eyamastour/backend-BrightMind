@@ -222,10 +222,10 @@ router.get('/reset-password', async (req, res) => {
  *         description: Internal server error
  */
 router.post('/signup', async (req, res) => {
-    let { email, password, company, tel, language } = req.body;
+    let { email, password, company, tel, language, firstname, lastname } = req.body;
 
     // Assurez-vous que les champs existent et ne sont pas vides
-    if (!email || !password || !company || !tel || !language) {
+    if (!email || !password || !company || !tel || !language || !firstname || !lastname) {
         return res.status(400).json({
             status: "FAILED",
             message: "Empty input fields!"
@@ -234,6 +234,8 @@ router.post('/signup', async (req, res) => {
 
     // Trim des champs
     email = email.trim();
+    firstname = firstname.trim();
+    lastname = firstname.trim();
     password = password.trim();
     company = company.trim();
     tel = tel.trim();
@@ -266,6 +268,8 @@ router.post('/signup', async (req, res) => {
             company,
             tel,
             language,
+            firstname,
+            lastname,
             isVerified: false,
             verificationToken: crypto.randomBytes(32).toString('hex'),
             verificationTokenExpiration: Date.now() + 3600000 // 1 hour
