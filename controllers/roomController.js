@@ -88,8 +88,9 @@ exports.createRoom = async (req, res) => {
     });
     const newRoom = await room.save();
 
-    // Update the installation's rooms array
+    // Update the installation's rooms array and set status to online
     installation.rooms.push(newRoom._id);
+    installation.status = 'online'; // Set status to online when a room is added
     await installation.save();
 
     res.status(201).json(newRoom);
@@ -179,6 +180,12 @@ exports.deleteRoom = async (req, res) => {
 
     // Remove room from installation's rooms array
     installation.rooms = installation.rooms.filter(r => r.toString() !== room._id.toString());
+    
+    // If this was the last room, set installation status to offline
+    if (installation.rooms.length === 0) {
+      installation.status = 'offline';
+    }
+    
     await installation.save();
 
     await Room.deleteOne({ _id: req.params.id });

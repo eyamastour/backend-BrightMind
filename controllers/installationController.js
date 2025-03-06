@@ -10,10 +10,11 @@ exports.addInstallation = async (req, res) => {
         return res.status(403).json({ message: 'Only admins can add installations' });
       }
 
-      const { name, route, boxId, latitude, longitude, parent } = req.body;
+      const { name, cluster, route, boxId, latitude, longitude, parent } = req.body;
       
       const newInstallation = new Installation({
         name,
+        cluster: cluster || name, // Use cluster if provided, otherwise use name
         route,
         boxId,
         latitude,
