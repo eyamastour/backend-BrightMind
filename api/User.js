@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Installation = require('../models/installation');
 const { v4: uuidv4 } = require('uuid');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
@@ -460,6 +461,194 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
+// Middleware to check if user is admin
+const isAdmin = (req, res, next) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({
+            status: "FAILED",
+            message: "Admin privileges required"
+        });
+    }
+    next();
+};
 
+// Get all installations a user has access to
+router.get('/installations', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const user = await User.findById(userId).populate('installationPermissions');
+        
+        if (!user) {
+            return res.status(404).json({
+                status: "FAILED",
+                message: "User not found"
+            });
+        }
+
+        // If user is admin, return all installations
+        if (user.role === 'admin') {
+            const allInstallations = await Installation.find();
+            return res.status(200).json({
+                status: "SUCCESS",
+                installations: allInstallations
+            });
+        }
+
+        // For regular users, return only installations they have access to
+        res.status(200).json({
+            status: "SUCCESS",
+            installations: user.installationPermissions || []
+        });
+    } catch (error) {
+        console.error("Error fetching user installations:", error);
+        res.status(500).json({
+            status: "FAILED",
+            message: "An error occurred while fetching installations"
+        });
+    }
+});
+
+// Add installation permission for a user (admin only)
+router.post('/permissions', authenticateToken, isAdmin, async (req, res) => {
+    const { userId, installationId } = req.body;
+
+    if (!userId || !installationId) {
+        return res.status(400).json({
+            status: "FAILED",
+            message: "User ID and Installation ID are required"
+        });
+    }
+
+    try {
+        // Check if user exists
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                status: "FAILED",
+                message: "User not found"
+            });
+        }
+
+        // Check if installation exists
+        const installation = await Installation.findById(installationId);
+        if (!installation) {
+            return res.status(404).json({
+                status: "FAILED",
+                message: "Installation not found"
+            });
+        }
+
+        // Check if permission already exists
+        if (user.installationPermissions && user.installationPermissions.includes(installationId)) {
+            return res.status(400).json({
+                status: "FAILED",
+                message: "User already has permission for this installation"
+            });
+        }
+
+        // Add permission
+        if (!user.installationPermissions) {
+            user.installationPermissions = [];
+        }
+        user.installationPermissions.push(installationId);
+        await user.save();
+
+        res.status(200).json({
+            status: "SUCCESS",
+            message: "Installation permission added successfully",
+            user: {
+                _id: user._id,
+                email: user.email,
+                installationPermissions: user.installationPermissions
+            }
+        });
+    } catch (error) {
+        console.error("Error adding installation permission:", error);
+        res.status(500).json({
+            status: "FAILED",
+            message: "An error occurred while adding installation permission"
+        });
+    }
+});
+
+// Remove installation permission for a user (admin only)
+router.delete('/permissions', authenticateToken, isAdmin, async (req, res) => {
+    const { userId, installationId } = req.body;
+
+    if (!userId || !installationId) {
+        return res.status(400).json({
+            status: "FAILED",
+            message: "User ID and Installation ID are required"
+        });
+    }
+
+    try {
+        // Check if user exists
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                status: "FAILED",
+                message: "User not found"
+            });
+        }
+
+        // Check if permission exists
+        if (!user.installationPermissions || !user.installationPermissions.includes(installationId)) {
+            return res.status(400).json({
+                status: "FAILED",
+                message: "User does not have permission for this installation"
+            });
+        }
+
+        // Remove permission
+        user.installationPermissions = user.installationPermissions.filter(
+            id => id.toString() !== installationId
+        );
+        await user.save();
+
+        res.status(200).json({
+            status: "SUCCESS",
+            message: "Installation permission removed successfully",
+            user: {
+                _id: user._id,
+                email: user.email,
+                installationPermissions: user.installationPermissions
+            }
+        });
+    } catch (error) {
+        console.error("Error removing installation permission:", error);
+        res.status(500).json({
+            status: "FAILED",
+            message: "An error occurred while removing installation permission"
+        });
+    }
+});
+
+// Get all users with their installation permissions (admin only)
+router.get('/permissions', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const users = await User.find().populate('installationPermissions');
+        
+        const usersWithPermissions = users.map(user => ({
+            _id: user._id,
+            email: user.email,
+            username: user.username,
+            role: user.role,
+            isVerified: user.isVerified,
+            installationPermissions: user.installationPermissions || []
+        }));
+
+        res.status(200).json({
+            status: "SUCCESS",
+            users: usersWithPermissions
+        });
+    } catch (error) {
+        console.error("Error fetching users with permissions:", error);
+        res.status(500).json({
+            status: "FAILED",
+            message: "An error occurred while fetching users with permissions"
+        });
+    }
+});
 
 module.exports = router;

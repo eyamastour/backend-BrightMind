@@ -18,6 +18,11 @@ const UserSchema = new Schema({
         enum: ['user', 'admin'], 
         default: 'user'
     },
+    // Array of installation IDs that the user has access to
+    installationPermissions: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Installation'
+    }],
     resetToken: {  
         type: String,
         default: null  

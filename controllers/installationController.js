@@ -10,7 +10,7 @@ exports.addInstallation = async (req, res) => {
         return res.status(403).json({ message: 'Only admins can add installations' });
       }
 
-      const { name, cluster, route, boxId, latitude, longitude, parent } = req.body;
+      const { name, cluster, route, boxId, latitude, longitude, parent, isCluster } = req.body;
       
       const newInstallation = new Installation({
         name,
@@ -20,6 +20,7 @@ exports.addInstallation = async (req, res) => {
         latitude,
         longitude,
         parent: parent || 'ROOT',
+        isCluster: isCluster !== undefined ? isCluster : (parent === 'ROOT' || parent === undefined), // If isCluster is provided, use it, otherwise determine based on parent
         userId: req.userId // Ajout de l'userId depuis le token
       });
   
@@ -30,7 +31,7 @@ exports.addInstallation = async (req, res) => {
     }
 };
   
-// Récupérer les appareils d'une installation
+// Get devices by installation ID
 exports.getDevicesByInstallation = async (req, res) => {
   try {
     const user = await User.findById(req.userId);
@@ -40,8 +41,15 @@ exports.getDevicesByInstallation = async (req, res) => {
       return res.status(404).json({ error: 'Installation not found' });
     }
 
-    // Vérifier si l'utilisateur a le droit de voir cette installation
-    if (user.role !== 'admin' && installation.userId.toString() !== req.userId) {
+    // Check if user has permission to view this installation
+    const hasPermission = 
+      user.role === 'admin' || 
+      installation.userId.toString() === req.userId || 
+      (user.installationPermissions && user.installationPermissions.some(
+        permId => permId.toString() === installation._id.toString()
+      ));
+
+    if (!hasPermission) {
       return res.status(403).json({ message: 'Not authorized to view this installation' });
     }
 
@@ -63,11 +71,18 @@ exports.getAllInstallations = async (req, res) => {
 
     let installations;
     if (user.role === 'admin') {
-      // Admin voit toutes les installations
+      // Admin sees all installations
       installations = await Installation.find().populate('devices');
     } else {
-      // User normal voit uniquement ses installations
-      installations = await Installation.find({ userId: req.userId }).populate('devices');
+      // Regular user sees only installations they have permission for
+      if (user.installationPermissions && user.installationPermissions.length > 0) {
+        installations = await Installation.find({
+          _id: { $in: user.installationPermissions }
+        }).populate('devices');
+      } else {
+        // If no specific permissions, show installations created by the user
+        installations = await Installation.find({ userId: req.userId }).populate('devices');
+      }
     }
     
     res.status(200).json(installations);
@@ -88,8 +103,15 @@ exports.getInstallationById = async (req, res) => {
       return res.status(404).json({ message: 'Installation not found' });
     }
 
-    // Vérifier si l'utilisateur a le droit de voir cette installation
-    if (user.role !== 'admin' && installation.userId.toString() !== req.userId) {
+    // Check if user has permission to view this installation
+    const hasPermission = 
+      user.role === 'admin' || 
+      installation.userId.toString() === req.userId || 
+      (user.installationPermissions && user.installationPermissions.some(
+        permId => permId.toString() === installation._id.toString()
+      ));
+
+    if (!hasPermission) {
       return res.status(403).json({ message: 'Not authorized to view this installation' });
     }
 
@@ -109,8 +131,15 @@ exports.getRoomsByInstallation = async (req, res) => {
       return res.status(404).json({ message: 'Installation not found' });
     }
 
-    // Vérifier si l'utilisateur a le droit de voir cette installation
-    if (user.role !== 'admin' && installation.userId.toString() !== req.userId) {
+    // Check if user has permission to view this installation
+    const hasPermission = 
+      user.role === 'admin' || 
+      installation.userId.toString() === req.userId || 
+      (user.installationPermissions && user.installationPermissions.some(
+        permId => permId.toString() === installation._id.toString()
+      ));
+
+    if (!hasPermission) {
       return res.status(403).json({ message: 'Not authorized to view this installation' });
     }
 
@@ -130,8 +159,15 @@ exports.updateInstallation = async (req, res) => {
       return res.status(404).json({ message: 'Installation not found' });
     }
 
-    // Vérifier si l'utilisateur a le droit de modifier cette installation
-    if (user.role !== 'admin' && installation.userId.toString() !== req.userId) {
+    // Check if user has permission to update this installation
+    const hasPermission = 
+      user.role === 'admin' || 
+      installation.userId.toString() === req.userId || 
+      (user.installationPermissions && user.installationPermissions.some(
+        permId => permId.toString() === installation._id.toString()
+      ));
+
+    if (!hasPermission) {
       return res.status(403).json({ message: 'Not authorized to update this installation' });
     }
 

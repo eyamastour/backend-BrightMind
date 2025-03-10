@@ -11,7 +11,8 @@ const installationSchema = new mongoose.Schema({
   parent: { type: mongoose.Schema.Types.Mixed, ref: 'Installation', default: 'ROOT' }, // Can be 'ROOT' or an ObjectId
   devices: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Device' }], // Référence aux appareils
   rooms: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Room' }], // Référence aux rooms
-  status: { type: String, enum: ['online', 'offline'], default: 'offline' } // Status of the installation
+  status: { type: String, enum: ['online', 'offline'], default: 'offline' }, // Status of the installation
+  isCluster: { type: Boolean, default: function() { return this.parent === 'ROOT'; } } // Flag to distinguish between clusters and installations
 
 }, { timestamps: true }); // Adds createdAt and updatedAt fields automatically
 
