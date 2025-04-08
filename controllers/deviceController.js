@@ -4,23 +4,19 @@ const Room = require('../models/Room');
 const DeviceHistory = require('../models/deviceHistory');
 const User = require('../models/User');
 
-// Fonction pour ajouter un nouveau device
-// Fonction pour ajouter un nouveau device
+
 exports.addDevice = async (req, res) => {
   try {
     const { name, zone, type, deviceType, status, value, lastUpdated, connected, portServer, installationId, roomId } = req.body;
 
-    // Vérifier que tous les champs nécessaires sont présents
     if (!name || !zone || !type || !deviceType) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Vérifier que le type de device est valide
     if (!['actuator', 'sensor'].includes(deviceType)) {
       return res.status(400).json({ error: 'Invalid deviceType. It should be "actuator" or "sensor".' });
     }
 
-    // Créer un nouvel objet Device
     const newDevice = new Device({
       name,
       zone,
@@ -33,7 +29,6 @@ exports.addDevice = async (req, res) => {
       portServer
     });
 
-    // Si roomId est fourni, associer le device à la room
     if (roomId) {
       const room = await Room.findById(roomId);
       if (!room) {
@@ -44,7 +39,6 @@ exports.addDevice = async (req, res) => {
       await room.save();
     }
 
-    // Si installationId est fourni, on ajoute le device à l'installation correspondante
     if (installationId) {
       const installation = await Installation.findById(installationId);
 
@@ -52,11 +46,9 @@ exports.addDevice = async (req, res) => {
         return res.status(404).json({ error: `Installation with ID ${installationId} not found` });
       }
 
-      // Ajouter le périphérique à l'installation dans la base de données
       newDevice.installation = installationId; // Associer l'ID de l'installation au périphérique
       await newDevice.save();
 
-      // Create initial history record
       await DeviceHistory.create({
         deviceId: newDevice._id,
         deviceName: newDevice.name,
@@ -64,15 +56,12 @@ exports.addDevice = async (req, res) => {
         value: newDevice.value || (newDevice.deviceType === 'actuator' ? false : 0)
       });
 
-      // Ajouter le périphérique à la liste des périphériques de l'installation
-      installation.devices.push(newDevice._id); // Ajouter le périphérique à l'installation
+      installation.devices.push(newDevice._id); 
       await installation.save();
 
-      // Répondre avec le périphérique ajouté et l'installation mise à jour
       return res.status(201).json({ device: newDevice, installation });
     }
 
-    // Sauvegarder le périphérique sans installation associée
     await newDevice.save();
 
     // Create initial history record even for devices without installation

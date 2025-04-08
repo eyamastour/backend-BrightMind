@@ -6,8 +6,9 @@ const installationSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   route: { type: String, required: true },
   boxId: { type: String, required: true },
-  latitude: { type: Number, required: true },
-  longitude: { type: Number, required: true },
+  latitude: { type: Number, default: 0 },
+  longitude: { type: Number, default: 0 },
+  planImage: { type: String }, // URL or path to the plan image
   parent: { type: mongoose.Schema.Types.Mixed, ref: 'Installation', default: 'ROOT' }, // Can be 'ROOT' or an ObjectId
   devices: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Device' }], // Référence aux appareils
   rooms: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Room' }], // Référence aux rooms

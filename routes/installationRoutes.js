@@ -12,6 +12,7 @@ router.get('/', installationController.getAllInstallations);
 router.get('/:id', installationController.getInstallationById);
 router.put('/:id', installationController.updateInstallation);
 router.delete('/:id', installationController.deleteInstallation);
+router.post('/:id/upload-plan', installationController.uploadPlanImage);
 router.get('/:installationId/devices', installationController.getDevicesByInstallation);
 router.get('/:id/rooms', installationController.getRoomsByInstallation);
 
